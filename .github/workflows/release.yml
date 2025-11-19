@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  publish:
+    name: Publish ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [linux-x64, win-x64, osx-x64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        working-directory: AmigaRawImageConverter
+        run: dotnet restore
+
+      - name: Publish
+        working-directory: AmigaRawImageConverter
+        run: |
+          dotnet publish -c Release -r ${{ matrix.rid }} \
+            --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true \
+            -o publish/${{ matrix.rid }}
+
+      - name: Package artifact
+        working-directory: AmigaRawImageConverter/publish/${{ matrix.rid }}
+        run: zip -r ../AmigaRawImageConverter-${{ matrix.rid }}.zip .
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: AmigaRawImageConverter/publish/AmigaRawImageConverter-${{ matrix.rid }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
