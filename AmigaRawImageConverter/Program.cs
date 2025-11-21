@@ -77,10 +77,12 @@ internal static class Program
         var palette = DecodePalette(paletteTail);
 
         var planar = raw.AsSpan(0, raw.Length - PaletteLength);
-        var candidates = GuessCandidates(planar, opts)
+        var paletteColors = palette.Length;
+        var candidates = GuessCandidates(planar, paletteColors, opts)
             .OrderBy(c => c.score)
             .ThenBy(c => Math.Abs(c.w - WidthTieBreaker1))
             .ThenBy(c => Math.Abs(c.w - WidthTieBreaker2))
+            .ThenByDescending(c => c.planes)
             .Take(Math.Max(1, opts.MaxCandidates))
             .ToList();
 
@@ -96,42 +98,55 @@ internal static class Program
         var idx = 1;
         foreach (var candidate in candidates)
         {
-            var pixels = DecodePlanar(planar, (candidate.w, candidate.h));
+            var pixels = DecodePlanar(planar, (candidate.w, candidate.h), candidate.planes);
             using var img = ToImage(pixels, palette);
-            var name = $"{baseOut}_cand{idx:02d}_{candidate.w}x{candidate.h}.png";
+            var name = $"{baseOut}_cand{idx:02d}_{candidate.w}x{candidate.h}_p{candidate.planes}.png";
             img.Save(name, new PngEncoder());
             Console.WriteLine(
-                $"OK {Path.GetFileName(inputPath)} -> {name} ({candidate.w}x{candidate.h}, score {candidate.score:0.00})");
+                $"OK {Path.GetFileName(inputPath)} -> {name} ({candidate.w}x{candidate.h}, {candidate.planes} planes, score {candidate.score:0.00})");
             idx++;
         }
     }
 
-    private static List<(int w, int h, double score)> GuessCandidates(ReadOnlySpan<byte> planar, Options opts)
+    private static List<(int w, int h, int planes, double score)> GuessCandidates(
+        ReadOnlySpan<byte> planar,
+        int paletteColors,
+        Options opts)
     {
-        const int planes = 4;
-        var candidates = new List<(int w, int h, double score)>();
+        var candidates = new List<(int w, int h, int planes, double score)>();
+        var minPlanes = Math.Max(1, opts.MinPlanes);
+        var maxPlanes = Math.Max(minPlanes, opts.MaxPlanes);
 
-        for (var width = opts.MinWidth; width <= opts.MaxWidth; width += opts.WidthIncrement)
+        for (var planes = minPlanes; planes <= maxPlanes; planes++)
         {
-            var bytesPerRow = width / 8 * planes;
-            if (bytesPerRow == 0)
+            var maxColors = 1 << planes;
+            if (maxColors > paletteColors)
             {
                 continue;
             }
 
-            if (planar.Length % bytesPerRow != 0)
+            for (var width = opts.MinWidth; width <= opts.MaxWidth; width += opts.WidthIncrement)
             {
-                continue;
-            }
+                var bytesPerRow = width / 8 * planes;
+                if (bytesPerRow == 0)
+                {
+                    continue;
+                }
 
-            var height = planar.Length / bytesPerRow;
-            if (height < opts.MinHeight || height > opts.MaxHeight)
-            {
-                continue;
-            }
+                if (planar.Length % bytesPerRow != 0)
+                {
+                    continue;
+                }
 
-            var score = ComputeStripeScore(planar, width, height, planes);
-            candidates.Add((width, height, score));
+                var height = planar.Length / bytesPerRow;
+                if (height < opts.MinHeight || height > opts.MaxHeight)
+                {
+                    continue;
+                }
+
+                var score = ComputeStripeScore(planar, width, height, planes);
+                candidates.Add((width, height, planes, score));
+            }
         }
 
         return candidates;
@@ -210,11 +225,10 @@ internal static class Program
         return colors;
     }
 
-    private static byte[,] DecodePlanar(ReadOnlySpan<byte> planar, (int Width, int Height) geom)
+    private static byte[,] DecodePlanar(ReadOnlySpan<byte> planar, (int Width, int Height) geom, int planes)
     {
         var width = geom.Width;
         var height = geom.Height;
-        const int planes = 4;
         var bytesPerRowPerPlane = width / 8;
         var bytesPerPlane = bytesPerRowPerPlane * height;
 

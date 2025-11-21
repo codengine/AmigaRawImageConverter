@@ -9,7 +9,7 @@ The tool auto-detects likely geometries and emits the top N PNGs per input.
 - Uses the embedded palette (last 32 bytes) decoded as Amiga RGB4.
 - Detects geometry by measuring row smoothness/banding; sorts best-first.
 - Outputs multiple candidates with descriptive suffixes (`_candNN_<WxH>.png`).
-- Works on single files or whole directories; configurable max candidates and geometry search ranges.
+- Works on single files or whole directories; configurable max candidates, bitplane range, and geometry search ranges.
 - Cross-platform (.NET 8 + ImageSharp)
 
 ## Requirements
@@ -35,7 +35,7 @@ dotnet run --project AmigaRawImageConverter/AmigaRawImageConverter.csproj -- pat
 ```
 
 Output files (in the same directory as the output base) are named after the base file name with candidate suffixes, e.g.:
-`image_cand01_256x204.png`.
+`image_cand01_256x204_p4.png` (width × height plus plane count).
 
 ### Directory batch
 ```bash
@@ -51,6 +51,8 @@ Candidate PNGs are written under the chosen output directory with names based on
 ## CLI options
 - `-n`, `--max-candidates` (default: 5): How many best geometry candidates to emit per file.
 - `-p`, `--raw-file-pattern` (default: `*.raw`): Filename pattern to match for RAW files when input is a directory.
+- `--min-planes` (default: 3): Minimum bitplane count to evaluate when guessing geometry.
+- `--max-planes` (default: 6): Maximum bitplane count to evaluate when guessing geometry.
 - `--min-width` (default: 64): Minimum image width (pixels) to evaluate when guessing geometry.
 - `--max-width` (default: 640): Maximum image width (pixels) to evaluate when guessing geometry.
 - `--min-height` (default: 1): Minimum image height (pixels) allowed for a candidate.
@@ -58,7 +60,7 @@ Candidate PNGs are written under the chosen output directory with names based on
 - `--width-increment` (default: 16): Step (pixels) between tested widths when scanning candidates.
 
 ## Notes on geometry detection
-- Assumes 4 bitplanes.
+- Defaults to scanning 3–6 bitplanes (common Amiga modes); plane counts that need more palette entries than are present are skipped.
 - By default scans widths from 64 to 640 pixels in steps of 16 (`--min-width`, `--max-width`, `--width-increment`).
 - Width must be divisible by 8 and exactly consume the planar data (given height and plane count) or the candidate is skipped.
 - Scores candidates by row smoothness (mean + stddev of row deltas); lower is better.
@@ -70,6 +72,6 @@ each channel is scaled to 0–255 for PNG output.
 
 ## Limitations & gotchas
 - Expects the palette to be the final 32 bytes; extra non-planar data at the end will confuse detection.
-- Fixed to 4 bitplanes; adjust the code for other plane counts.
+- Palette contains 16 entries (Amiga RGB4); bitplane counts requiring more colors are ignored.
 - Width/height search ranges are controlled via CLI options; exotic sizes outside the search window will not be considered.
 - Smoothness scoring can still pick a wrong candidate for very noisy or synthetic images—inspect the outputs.

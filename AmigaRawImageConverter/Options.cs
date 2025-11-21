@@ -18,6 +18,12 @@ internal class Options
     [Option('p', "raw-file-pattern", Default = "*.raw", HelpText = "The filename pattern to match for RAW files.")]
     public string RawFilePattern { get; set; } = "*.raw";
 
+    [Option("min-planes", Default = 3, HelpText = "Minimum bitplane count to evaluate when guessing geometry.")]
+    public int MinPlanes { get; set; }
+
+    [Option("max-planes", Default = 6, HelpText = "Maximum bitplane count to evaluate when guessing geometry.")]
+    public int MaxPlanes { get; set; }
+
     [Option("min-width", Default = 64, HelpText = "Minimum image width (pixels) to evaluate when guessing geometry.")]
     public int MinWidth { get; set; }
 
