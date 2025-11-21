@@ -18,6 +18,10 @@ internal class Options
     [Option('p', "raw-file-pattern", Default = "*.raw", HelpText = "The filename pattern to match for RAW files.")]
     public string RawFilePattern { get; set; } = "*.raw";
 
+    [Option("require-palette", Default = true,
+        HelpText = "Require palette footer; if false, use grayscale palette and treat all bytes as planar data.")]
+    public bool RequirePalette { get; set; }
+
     [Option("min-planes", Default = 3, HelpText = "Minimum bitplane count to evaluate when guessing geometry.")]
     public int MinPlanes { get; set; }
 

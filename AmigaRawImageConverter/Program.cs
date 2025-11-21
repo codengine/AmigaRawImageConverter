@@ -68,15 +68,28 @@ internal static class Program
     private static void ConvertOne(string inputPath, string outputPath, Options opts)
     {
         var raw = File.ReadAllBytes(inputPath);
-        if (raw.Length < PaletteLength)
+        ReadOnlySpan<byte> planar;
+        Rgba32[] palette;
+
+        if (opts.RequirePalette)
         {
-            throw new InvalidOperationException("File too small to contain palette.");
+            if (raw.Length < PaletteLength)
+            {
+                throw new InvalidOperationException("File too small to contain palette.");
+            }
+
+            var paletteTail = raw.AsSpan(raw.Length - PaletteLength, PaletteLength);
+            palette = DecodePalette(paletteTail);
+            planar = raw.AsSpan(0, raw.Length - PaletteLength);
+        }
+        else
+        {
+            planar = raw;
+            var maxPlanes = Math.Max(opts.MinPlanes, opts.MaxPlanes);
+            var paletteSize = 1 << Math.Max(1, maxPlanes);
+            palette = BuildGrayscalePalette(paletteSize);
         }
 
-        var paletteTail = raw.AsSpan(raw.Length - PaletteLength, PaletteLength);
-        var palette = DecodePalette(paletteTail);
-
-        var planar = raw.AsSpan(0, raw.Length - PaletteLength);
         var paletteColors = palette.Length;
         var candidates = GuessCandidates(planar, paletteColors, opts)
             .OrderBy(c => c.score)
@@ -223,6 +236,19 @@ internal static class Program
         }
 
         return colors;
+    }
+
+    private static Rgba32[] BuildGrayscalePalette(int size)
+    {
+        var palette = new Rgba32[size];
+        var max = Math.Max(1, size - 1);
+        for (var i = 0; i < size; i++)
+        {
+            var v = (byte)(i * 255 / max);
+            palette[i] = new Rgba32(v, v, v, 255);
+        }
+
+        return palette;
     }
 
     private static byte[,] DecodePlanar(ReadOnlySpan<byte> planar, (int Width, int Height) geom, int planes)
