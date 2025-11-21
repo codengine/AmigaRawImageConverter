@@ -22,6 +22,10 @@ internal class Options
         HelpText = "Require palette footer; if false, use grayscale palette and treat all bytes as planar data.")]
     public bool RequirePalette { get; set; }
 
+    [Option("header-skip", Default = 0,
+        HelpText = "Number of bytes to skip at the start of the file before reading planar data.")]
+    public int HeaderSkip { get; set; }
+
     [Option("min-planes", Default = 3, HelpText = "Minimum bitplane count to evaluate when guessing geometry.")]
     public int MinPlanes { get; set; }
 

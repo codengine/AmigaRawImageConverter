@@ -68,23 +68,34 @@ internal static class Program
     private static void ConvertOne(string inputPath, string outputPath, Options opts)
     {
         var raw = File.ReadAllBytes(inputPath);
+        if (opts.HeaderSkip < 0)
+        {
+            throw new InvalidOperationException("Header skip cannot be negative.");
+        }
+
+        if (opts.HeaderSkip > raw.Length)
+        {
+            throw new InvalidOperationException("Header skip exceeds file size.");
+        }
+
+        var data = raw.AsSpan(opts.HeaderSkip);
         ReadOnlySpan<byte> planar;
         Rgba32[] palette;
 
         if (opts.RequirePalette)
         {
-            if (raw.Length < PaletteLength)
+            if (data.Length < PaletteLength)
             {
                 throw new InvalidOperationException("File too small to contain palette.");
             }
 
-            var paletteTail = raw.AsSpan(raw.Length - PaletteLength, PaletteLength);
+            var paletteTail = data.Slice(data.Length - PaletteLength, PaletteLength);
             palette = DecodePalette(paletteTail);
-            planar = raw.AsSpan(0, raw.Length - PaletteLength);
+            planar = data[..^PaletteLength];
         }
         else
         {
-            planar = raw;
+            planar = data;
             var maxPlanes = Math.Max(opts.MinPlanes, opts.MaxPlanes);
             var paletteSize = 1 << Math.Max(1, maxPlanes);
             palette = BuildGrayscalePalette(paletteSize);
